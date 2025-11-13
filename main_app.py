@@ -1,12 +1,16 @@
 # main_app.py
+import os
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 import pandas as pd
 
 # ---------------- CONFIG IMPORTS ----------------
-from config.config import REFRESH_INTERVAL_SECONDS, DEBUG_MODE
+from config.config import REFRESH_INTERVAL_SECONDS, DEBUG_MODE, LOCAL_TZ
 from data.loader import load_all_sheets, get_current_date_from_sheets
 from data.processor import clean_sheet_dfs
+
+# ---------------- UTIL IMPORTS ----------------
+from utils.time_utils import normalize_dfs_timestamps, now_local
 
 # ---------------- COMPONENT IMPORTS ----------------
 from components.sidebar import render_sidebar
@@ -85,16 +89,28 @@ if sb["manual_refresh"]:
 # ----------------------------------------------------
 dfs = clean_sheet_dfs(raw_dfs)
 
+# ----------------- NEW: normalize all timestamp-like columns to tz-aware -----------------
+# This ensures every component receives timezone-aware datetimes in LOCAL_TZ.
+# You can optionally pass specific column names if you know them, e.g. candidate_cols=['Timestamp','arrival']
+dfs = normalize_dfs_timestamps(dfs, candidate_cols=['Timestamp', 'arrival', 'arrival_time'])
+# --------------------------------------------------------------------------------------
+
+
 # ----------------------------------------------------
 # DEBUG PANEL (Optional)
 # ----------------------------------------------------
 if DEBUG_MODE:
     with st.sidebar.expander("Debug / Host Check", expanded=False):
-        st.write("🌐 Server Time (Asia/Phnom_Penh):", pd.Timestamp.now(tz="Asia/Phnom_Penh"))
-        st.write("Recent Status Records:")
-        st.write(dfs['status'].sort_values("Timestamp").tail(10))
-        st.write("Recent Security Records:")
-        st.write(dfs['security'].sort_values("Timestamp").tail(10))
+        st.write("🌐 Server Time (Asia/Phnom_Penh):", pd.Timestamp.now(tz=LOCAL_TZ))
+        st.write("Now (helper, tz-aware):", now_local().isoformat())
+        if 'status' in dfs and not dfs['status'].empty and 'Timestamp' in dfs['status'].columns:
+            # show last 10 parsed timestamps
+            st.write("Recent Status Records (last 10):")
+            st.write(dfs['status'].sort_values("Timestamp").tail(10))
+        if 'security' in dfs and not dfs['security'].empty:
+            st.write("Recent Security Records (last 10):")
+            # show parsed timestamps in security (if any)
+            st.write(dfs['security'].tail(10).head(10))
         st.caption("Debug mode active (for host).")
 
 # ----------------------------------------------------
@@ -110,6 +126,7 @@ show_status_summary(
 st.divider()
 
 # 2️⃣ CURRENT WAITING TRUCKS
+# Components should now get tz-aware datetimes (e.g., security['Timestamp'] or 'arrival' etc.)
 show_current_waiting(
     dfs['security'], dfs['status'], dfs['driver'],
     product_filter=sb["product_selected"],
