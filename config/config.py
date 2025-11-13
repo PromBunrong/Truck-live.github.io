@@ -15,16 +15,16 @@ SHEET_GIDS = {
     'logistic': "1027892338"
 }
 
-REFRESH_INTERVAL_SECONDS = 30
+REFRESH_INTERVAL_SECONDS = int(os.getenv("REFRESH_INTERVAL_SECONDS", 30))
 
-# Cambodia Timezone (UTC+7)
-CAMBODIA_TZ = "Asia/Phnom_Penh"     # This is already UTC+7
-UTC_OFFSET = "+07:00"               # Optional descriptive label
+# Cambodia timezone (UTC+7)
+CAMBODIA_TZ = "Asia/Phnom_Penh"     # canonical tz name for Cambodia (UTC+07:00)
+UTC_OFFSET = "+07:00"               # optional descriptive label
 
-# Timezone auto-switch
+# Timezone auto-switch (keeps behavior explicit)
 if ENVIRONMENT == "local":
     LOCAL_TZ = CAMBODIA_TZ
     DEBUG_MODE = True
 else:
-    LOCAL_TZ = CAMBODIA_TZ   # still show local time even if host server uses UTC
+    LOCAL_TZ = CAMBODIA_TZ
     DEBUG_MODE = False
